@@ -1,0 +1,220 @@
+﻿@page "/"
+@using BlazorSweeper.Data
+
+<body>
+    <!-- Sidebar containing the title, the restart button, and some tips/info. -->
+    <div class="sidenav" style="width: 270px;">
+        <h5>@BannerText</h5>
+
+        <button type="button" class="btn botBtn btn-primary" @onclick="@NewGame">New Game</button>
+
+        <p>Click on the squares to activate them, but don't click on a mine!</p>
+        <p>CTRL + click to flag a square. Flag all mines to win!</p>
+        <p>The number of mines is randomized between 12-20 each game.</p>
+    </div>
+
+    <!-- Create the 10x10 grid of squares based on the 2D array in the BoardSpace object. -->
+    <div class="container" style="opacity:@GameDisplay; margin: 30px auto">
+        @for (int i = 0; i < 10; i++)
+        {
+            <div class="row">
+                @for (int j = 0; j < 10; j++)
+                {
+                    var temp = ThisBoard.BoardSpace[i, j];
+                    <a class="col-sm" value="@temp" style="background-color: @ThisBoard.BoardSpace[i, j].Color; height: 80px; width: 80px; border: solid" @onclick="@(e => MakeMove(e, temp))">
+                        <h3 style="text-align: center; margin: 20px auto;">@ThisBoard.BoardSpace[i, j].KnownNeighbors</h3>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</body>
+
+@code {
+
+    // Some variables to make development easier.
+    Board ThisBoard;
+    bool GameOver;
+    string BannerText;
+    double GameDisplay;
+    int Neighbors;
+
+    // Runs on page render.
+    override protected void OnInit()
+    {
+        NewGame();
+    }
+
+    // This is a separate function because this is run when the page is rendered or when the user wants to start a new game.
+    public void NewGame()
+    {
+        BannerText = "Welcome To BlazorSweeper";
+        ThisBoard = new Board();
+        GameOver = false;
+        GameDisplay = 1;
+    }
+
+    // Run whenever the user clicks on a square.
+    private void MakeMove(UIMouseEventArgs click, Spaces space)
+    {
+
+        // Left clicking on a non-flagged square will open it.
+        if ((click.Button == 0) && (!click.CtrlKey) && (!space.Flagged))
+        {
+            if (space.HasMine)
+            {
+                BannerText = "You lost.";
+                GameOver = true;
+                GameDisplay = 0.5;
+                space.Color = "red;";
+
+                // Turn all mines red, even ones not clicked. If you flagged a mine, it turns green, but if you flag a bad space it turns purple.
+                for (int i = 0; i < 10; i++)
+                {
+                    for (int j = 0; j < 10; j++)
+                    {
+                        if (ThisBoard.BoardSpace[i, j].HasMine)
+                        {
+                            ThisBoard.BoardSpace[i, j].Color = "red;";
+                        }
+                        if (ThisBoard.BoardSpace[i, j].Flagged)
+                        {
+                            if (ThisBoard.BoardSpace[i, j].HasMine)
+                            {
+                                ThisBoard.BoardSpace[i, j].Color = "green;";
+                            }
+                            else
+                            {
+                                ThisBoard.BoardSpace[i, j].Color = "purple;";
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                CheckNeighbors(space);
+            }
+        }
+        // Right clicking flags the square.
+        else if (click.Button == 0 && click.CtrlKey)
+        {
+            if (space.Flagged)
+            {
+                space.Flagged = false;
+                space.Color = "gray;";
+                if (space.HasMine)
+                {
+                    ThisBoard.FlagNums--;
+                }
+            }
+            else
+            {
+                space.Flagged = true;
+                space.Color = "blue;";
+
+                if (space.HasMine)
+                {
+                    ThisBoard.FlagNums++;
+                }
+
+                if (ThisBoard.FlagNums == ThisBoard.MineNums)
+                {
+                    GameOver = true;
+                    BannerText = "You Won!";
+                    GameDisplay = 0.5;
+                    for (int i = 0; i < 10; i++)
+                    {
+                        for (int j = 0; j < 10; j++)
+                        {
+                            if (ThisBoard.BoardSpace[i, j].Flagged)
+                            {
+                                ThisBoard.BoardSpace[i, j].Color = "green;";
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    // This function checks all of the clicked space's neighbors to see how many neighbors have bombs.
+    private void CheckNeighbors(Spaces space)
+    {
+        Neighbors = 0;
+        // We need to check whether the neighboring space we are checking actually exists. For example we can check any neighbors above a square if the square in question is on the top row.
+        if (space.Y - 1 >= 0)
+        {
+            if (space.X - 1 >= 0)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X - 1, space.Y - 1], space);
+            }
+            if (space.X >= 0)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X, space.Y - 1], space);
+            }
+            if (space.X + 1 < 10)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X + 1, space.Y - 1], space);
+            }
+        }
+        if (space.Y >= 0)
+        {
+            if (space.X - 1 >= 0)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X - 1, space.Y], space);
+            }
+            if (space.X + 1 < 10)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X + 1, space.Y], space);
+            }
+
+        }
+        if (space.Y + 1 < 10)
+        {
+            if (space.X - 1 >= 0)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X - 1, space.Y + 1], space);
+            }
+            if (space.X >= 0)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X, space.Y + 1], space);
+            }
+            if (space.X + 1 < 10)
+            {
+                CheckSpecificNeighbor(ThisBoard.BoardSpace[space.X + 1, space.Y + 1], space);
+            }
+        }
+        space.KnownNeighbors = Neighbors.ToString();
+        space.Color = "white;";
+        space.Checked = true;
+
+        // If the square had zero neighbors with mines, then go ahead and check all of those.
+        if (Neighbors == 0)
+        {
+            foreach (Spaces spaces in space.NeighborSpaces)
+            {
+                // Check to see if the neighbor of the zero square has already been checked, otherwise the recursion will never end.
+                if ((spaces.Checked == false) && (spaces.Flagged == false))
+                {
+                    CheckNeighbors(spaces);
+                }
+            }
+        }
+    }
+
+    // Function to decide what to do if a neighbor has a mine or not.
+    private void CheckSpecificNeighbor(Spaces TempSpace, Spaces space)
+    {
+        if (TempSpace.HasMine)
+        {
+            Neighbors++;
+        }
+        else
+        {
+            space.NeighborSpaces.Add(TempSpace);
+        }
+    }
+
+}
